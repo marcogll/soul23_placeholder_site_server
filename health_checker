@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+import requests
+import json
+from datetime import datetime, timezone
+import os
+import subprocess # <-- CAMBIO: Importar para ejecutar comandos del sistema
+
+# --- Variables y Configuración ---
+
+webhook_env_var = os.getenv('WEBHOOK_URLS', '')
+WEBHOOK_URLS = [url.strip() for url in webhook_env_var.split(',') if url.strip()]
+
+INTERNOS = {
+    "vps_soul23": "31.97.41.188", # <-- CAMBIO: Añadido el VPS para el ping
+    "coolify": "https://aperture.soul23.cloud",
+    "formbricks": "https://feedback.soul23.cloud",
+    "vikunja": "https://tasks.soul23.cloud",
+    "gokapi": "https://wetrans.soul23.cloud",
+    "n8n_flows": "https://flows.soul23.cloud",
+    "ap_pos": "https://apos.soul23.cloud"
+}
+
+EXTERNOS = {
+    "openai": "https://status.openai.com/",
+    "google_gemini": "https://aistudio.google.com/status",
+    "canva": "https://www.canvastatus.com/",
+    "tiktok": "https://www.tiktok.com",
+    "facebook": "https://www.facebook.com",
+    "instagram": "https://www.instagram.com",
+    "telegram": "https://core.telegram.org",
+    "whatsapp": "https://www.whatsapp.com",
+    "x": "https://www.x.com",
+    "youtube": "https://www.youtube.com"
+}
+
+STATUSPAGE_SERVICES = ["openai", "canva"]
+
+# --- Funciones de Verificación de Estado ---
+
+def check_url(url):
+    try:
+        r = requests.get(url, timeout=8)
+        return r.status_code
+    except:
+        return 0
+
+# <-- CAMBIO: Nueva función para hacer ping al VPS
+def check_vps_ping(ip_address):
+    """
+    Envía un único paquete ICMP (ping) a la IP especificada.
+    Devuelve un estado basado en si el host respondió.
+    """
+    try:
+        # Comando de ping para Linux (que es lo que usan los runners de GitHub):
+        # -c 1: Enviar solo 1 paquete.
+        # -W 2: Esperar un máximo de 2 segundos por una respuesta.
+        command = ["ping", "-c", "1", "-W", "2", ip_address]
+        
+        # Ejecuta el comando, ocultando la salida para mantener los logs limpios.
+        result = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        # Un código de retorno 0 significa que el ping fue exitoso.
+        if result.returncode == 0:
+            return f"🟢 OK (VPS Reachable)"
+        else:
+            return f"🔴 Caído (VPS Unreachable)"
+    except Exception:
+        # Esto podría pasar si el comando 'ping' no estuviera disponible.
+        return f"🔴 Error (Ping command failed)"
+
+def check_formbricks_health(base_url):
+    health_url = f"{base_url.rstrip('/')}/health"
+    try:
+        response = requests.get(health_url, timeout=8)
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                if data.get("status") == "ok":
+                    return f"🟢 OK (API Health: ok)"
+                else:
+                    return f"🟡 Advertencia (API Health: {data.get('status', 'unknown')})"
+            except json.JSONDecodeError:
+                return "🟡 Advertencia (Respuesta no es JSON válido)"
+        else:
+            return f"🔴 Caído (Health Endpoint: {response.status_code})"
+    except requests.RequestException as e:
+        return f"🔴 Caído (Error de red: {e})"
+
+
+def get_statuspage_status(base_url):
+    api_url = f"{base_url.rstrip('/')}/api/v2/summary.json"
+    try:
+        response = requests.get(api_url, timeout=8)
+        if response.status_code == 200:
+            data = response.json()
+            status_description = data.get('status', {}).get('description')
+            if status_description:
+                status_indicator = data.get('status', {}).get('indicator')
+                if status_indicator == 'none':
+                    return f"🟢 OK ({status_description})"
+                else:
+                    return f"🟡 Advertencia ({status_description})"
+            return "🟡 Advertencia (Respuesta JSON inesperada)"
+        else:
+            return f"🔴 Caído (API Status: {response.status_code})"
+    except requests.RequestException as e:
+        return f"🔴 Caído (Error de red: {e})"
+    except json.JSONDecodeError:
+        return f"🔴 Caído (No se pudo decodificar JSON)"
+
+
+def get_gemini_status(status_url):
+    incidents_url = "https://status.cloud.google.com/incidents.json"
+    try:
+        response = requests.get(incidents_url, timeout=8)
+        if response.status_code == 200:
+            incidents = response.json()
+            gemini_incident = any('Vertex AI' in i.get('service_name', '') and i.get('end') is None for i in incidents)
+            if not gemini_incident:
+                return "🟢 OK (Sin incidentes reportados para Vertex AI)"
+            else:
+                return "🟡 Advertencia (Incidente activo en Vertex AI)"
+        else:
+            return f"🔴 Caído ({response.status_code})"
+    except requests.RequestException as e:
+        return f"🔴 Caído (Error: {e})"
+
+
+def human_state(code):
+    if code == 200:
+        return f"🟢 OK ({code})"
+    if code in (301, 302, 307, 308, 401, 403, 404):
+        return f"🟡 Advertencia ({code})"
+    return f"🔴 Caído ({code})"
+
+# --- Lógica Principal ---
+
+def build_section(diccionario):
+    salida = {}
+    for nombre, url_or_ip in diccionario.items():
+        # <-- CAMBIO: Añadida la lógica para el ping del VPS
+        if nombre == 'vps_soul23':
+            status_message = check_vps_ping(url_or_ip)
+            salida[f"{nombre}_url"] = url_or_ip # Guardamos la IP
+        elif nombre in STATUSPAGE_SERVICES:
+            status_message = get_statuspage_status(url_or_ip)
+        elif nombre == 'google_gemini':
+            status_message = get_gemini_status(url_or_ip)
+        elif nombre == 'formbricks':
+            status_message = check_formbricks_health(url_or_ip)
+        else:
+            status = check_url(url_or_ip)
+            salida[f"{nombre}_url"] = url_or_ip
+            salida[f"{nombre}_status"] = status
+            salida[f"{nombre}_state"] = human_state(status)
+            continue
+
+        # Asignación para los casos especiales
+        salida[f"{nombre}_url"] = url_or_ip
+        salida[f"{nombre}_status"] = status_message
+        salida[f"{nombre}_state"] = status_message
+    return salida
+
+
+def main():
+    if not WEBHOOK_URLS:
+        print("⚠️ Advertencia: La variable de entorno WEBHOOK_URLS no está configurada o está vacía.")
+    
+    resultado = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "internos": build_section(INTERNOS),
+        "externos": build_section(EXTERNOS)
+    }
+    
+    print("\n--- Enviando a Webhooks ---")
+    for url in WEBHOOK_URLS:
+        try:
+            requests.post(url, json=resultado, timeout=10)
+            print(f"✅ Resultado enviado exitosamente a: {url}")
+        except requests.RequestException as e:
+            print(f"❌ Error al enviar al webhook {url}: {e}")
+
+    print("\n--- Payload Enviado ---")
+    print(json.dumps(resultado, indent=4))
+
+
+if __name__ == "__main__":
+    main()
