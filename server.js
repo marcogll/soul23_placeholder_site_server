@@ -11,7 +11,7 @@ app.use(express.static(rootDir, { index: "index.html" }));
 // Health checker should always return the raw script with text/plain
 app.get("/healthchecker", (req, res) => {
   res.type("text/plain");
-  res.sendFile(path.join(rootDir, "health_checker"));
+  res.sendFile(path.join(rootDir, "scripts", "health_checker"));
 });
 
 // Fallback to index.html for other routes (optional)
