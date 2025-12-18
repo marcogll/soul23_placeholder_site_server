@@ -1,0 +1,36 @@
+{
+  "internos": {
+    "vps_soul23": "https://soul23.cloud/health",
+    "coolify": "https://aperture.soul23.cloud",
+    "formbricks": "https://feedback.soul23.cloud/health",
+    "vikunja": "https://tasks.soul23.cloud",
+    "gokapi": "https://wetrans.soul23.cloud",
+    "n8n_flows": "https://flows.soul23.cloud",
+    "ap_pos": "https://apos.soul23.cloud",
+    "appsmith": "https://appsmith.soul23.cloud"
+  },
+  "sitios_empresa": {
+    "vanity_web": "https://vanityexperience.mx/",
+    "vanity_cursos": "https://cursos.vanityexperience.mx/",
+    "vanity_academy": "https://academy.vanityexperience.mx/",
+    "vanity_unirse": "https://unirse.vanityexperience.mx/",
+    "soul23": "https://soul23.cloud/",
+    "socias_vanity": "https://socias.vanityexperience.mx/"
+  },
+  "externos": {
+    "fresha": "https://www.freshastatus.com/",
+    "google_gemini": "https://aistudio.google.com/status?hl=es-419",
+    "openai": "https://status.openai.com/",
+    "canva": "https://www.canvastatus.com/",
+    "tiktok": "https://www.tiktok.com",
+    "facebook": "https://www.facebook.com",
+    "instagram": "https://www.instagram.com",
+    "telegram": "https://core.telegram.org",
+    "whatsapp": "https://www.whatsapp.com",
+    "x": "https://www.x.com",
+    "youtube": "https://www.youtube.com",
+    "cloudflare": "https://www.cloudflarestatus.com",
+    "aws": "https://status.aws.amazon.com/rss/all.rss",
+    "azure": "https://status.azure.com/en-us/status/feed"
+  }
+}

@@ -1,37 +1,22 @@
 # Soul:23 coming soon page
 
-Una landing page responsive Built con Bootstrap 4 que muestra una cuenta regresiva y un formulario de notificaciones. Se accede a una versión viva en https://solu23.cloud.
+A responsive landing page built with Bootstrap 4 that displays a countdown and a notification form.
 
-**Author:** Marco Gallegos
-
-## Instalación local
+## Local Installation
 
 ```bash
 npm install
 npm start
 ```
 
-El servidor Express sirve todos los assets desde la raíz y expone `/healthchecker` con el script de salud como `text/plain`, listo para que operadores lo descarguen con `curl`.
+The Express server serves all assets from the root and exposes a `/healthchecker` endpoint with the health script as `text/plain`, ready for operators to download with `curl`.
 
-## Deploy con Coolify / Traefik
+## Countdown and Form
 
-1. Importa el repositorio como app Docker en Coolify.
-2. Elige el `Dockerfile` del proyecto, expone el puerto `3001` (ya definido en el contenedor).
-3. Coolify/Traefik se encargan del TLS; usa el dominio que asignas en la app.
-4. Si necesitas alertas, define la variable de entorno `WEBHOOK_URLS` antes de levantar la app.
-
-Una vez desplegado podrás invocar el verificador con:
-
-```bash
-curl https://soul23.cloud/healthchecker
-```
-
-## Contador y formulario
-
-El componente de tiempo lee el atributo `data-date` en `#countdown-timer`. Cámbialo por cualquier fecha válida:
+The time component reads the `data-date` attribute in `#countdown-timer`. Change it to any valid date:
 
 ```html
 <div id="countdown-timer" data-date="January 17, 2025 03:24:00">
 ```
 
-Si prefieres programarlo con JavaScript, reasigna la variable `countDownDate` dentro de `js/countdown.js` antes de que empiece el intervalo.
+If you prefer to program it with JavaScript, reassign the `countDownDate` variable inside `js/countdown.js` before the interval starts.

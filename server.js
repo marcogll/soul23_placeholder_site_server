@@ -1,5 +1,6 @@
 const express = require("express");
 const path = require("path");
+const fs = require("fs");
 
 const { exec } = require("child_process");
 
@@ -12,13 +13,26 @@ app.use(express.static(rootDir, { index: "index.html" }));
 
 // Health checker should always return the raw script with text/plain
 app.get("/healthchecker", (req, res) => {
-  res.type("text/plain");
-  res.sendFile(path.join(rootDir, "scripts", "health_checker"));
+  const pythonScriptPath = path.join(rootDir, "scripts", "health_checker.py");
+  
+  exec(`python3 ${pythonScriptPath}`, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Error executing health_checker.py: ${stderr}`);
+      return res.status(500).json({ error: "Failed to execute health checker" });
+    }
+    try {
+      const healthData = JSON.parse(stdout);
+      res.status(200).json(healthData);
+    } catch (parseErr) {
+      console.error(`Error parsing health checker output: ${parseErr}`);
+      res.status(500).json({ error: "Failed to parse health checker output" });
+    }
+  });
 });
 
 // Magic link para redirigir a la app de Telegram según plataforma
 app.get("/telegram", (req, res) => {
-  res.sendFile(path.join(rootDir, "telegram.html"));
+  res.sendFile(path.join(rootDir, "htmls", "telegram.html"));
 });
 
 // Standard health check endpoint for monitoring with VPS ping
@@ -38,6 +52,28 @@ app.get("/health", (req, res) => {
         },
       },
     });
+  });
+});
+
+// Endpoint to get a random phrase
+app.get("/day-quote", (req, res) => {
+  fs.readFile(path.join(rootDir, "data", "quotes.json"), "utf8", (err, data) => {
+    if (err) {
+      console.error("Error reading quotes file:", err);
+      return res.status(500).json({ error: "Could not read quotes file" });
+    }
+    try {
+      const quotes = JSON.parse(data);
+      const phrases = quotes.phrases;
+      if (!phrases || phrases.length === 0) {
+        return res.status(500).json({ error: "No phrases found" });
+      }
+      const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
+      res.status(200).json({ phrase: randomPhrase });
+    } catch (parseErr) {
+      console.error("Error parsing quotes file:", parseErr);
+      return res.status(500).json({ error: "Could not parse quotes file" });
+    }
   });
 });
 
