@@ -123,6 +123,7 @@ Contiene la lógica de negocio más compleja en forma de scripts.
             *   **Verificación simple**: Para la mayoría de los sitios, comprueba si la URL devuelve un código de estado HTTP 200.
             *   **Endpoints de Salud Específicos**: Para servicios como `vps_soul23` y `formbricks`, realiza peticiones a sus endpoints `/health` y analiza la respuesta JSON para un estado más detallado.
             *   **APIs de StatusPage**: Para servicios como OpenAI y Cloudflare, consulta su API de `statuspage.io` para obtener el estado oficial del servicio.
+            *   **MetaStatus**: Para Facebook, Instagram y WhatsApp consulta `https://metastatus.com/` y devuelve el estado oficial publicado por Meta, con fallback a un chequeo HTTP simple si la API no responde.
         3.  Consolida todos los resultados en un único objeto JSON.
         4.  Si la variable de entorno `WEBHOOK_URLS` está definida (con una o más URLs separadas por comas), envía el resultado JSON a cada webhook.
         5.  Imprime el resultado JSON en la salida estándar para que `server.js` pueda capturarlo.

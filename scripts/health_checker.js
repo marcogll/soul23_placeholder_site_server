@@ -3,6 +3,20 @@ const path = require("path");
 
 const STATUSPAGE_SERVICES = new Set(["openai", "canva", "cloudflare"]);
 const DEFAULT_TIMEOUT_MS = 10_000;
+const META_STATUS_ENDPOINTS = [
+  "https://metastatus.com/api/status",
+  "https://metastatus.com/api/statuses",
+];
+const META_STATUS_PAGE_URL = "https://metastatus.com/";
+const META_APPS = new Map([
+  ["facebook", "facebook"],
+  ["instagram", "instagram"],
+  ["whatsapp", "whatsapp"],
+]);
+const META_STATUS_CACHE_TTL_MS = 60_000;
+const META_SLUGS = [...new Set(META_APPS.values())];
+
+let metaStatusCache = { expiresAt: 0, map: null };
 
 const getWebhookUrls = () => {
   const value = process.env.WEBHOOK_URLS || "";
@@ -67,6 +81,272 @@ const checkFormbricksHealth = async (url) => {
     return "🟡 Advertencia (No JSON)";
   } catch {
     return "🔴 Caído (Error red)";
+  }
+};
+
+const getNestedValue = (obj, path) => {
+  if (!obj || typeof obj !== "object") return undefined;
+  return path.split(".").reduce((acc, key) => {
+    if (acc === undefined || acc === null) return undefined;
+    return acc[key];
+  }, obj);
+};
+
+const pickFirstString = (source, paths) => {
+  for (const path of paths) {
+    const value = path ? getNestedValue(source, path) : source;
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (typeof entry === "string" && entry.trim()) {
+          return entry.trim();
+        }
+        if (entry && typeof entry === "object") {
+          for (const candidate of Object.values(entry)) {
+            if (typeof candidate === "string" && candidate.trim()) {
+              return candidate.trim();
+            }
+          }
+        }
+      }
+    }
+    if (value && typeof value === "object") {
+      for (const candidate of Object.values(value)) {
+        if (typeof candidate === "string" && candidate.trim()) {
+          return candidate.trim();
+        }
+      }
+    }
+  }
+  return "";
+};
+
+const detectMetaSlug = (value) => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  return META_SLUGS.find((slug) => normalized.includes(slug)) || null;
+};
+
+const determineMetaSeverity = (text = "") => {
+  const normalized = text.toLowerCase();
+  if (/(major|outage|down|unavailable|disruption|incident|critical|severe)/.test(normalized)) {
+    return "down";
+  }
+  if (
+    /(minor|partial|degrad|latenc|slow|investigating|issue|maintenance|notice|degraded)/.test(
+      normalized
+    )
+  ) {
+    return "warn";
+  }
+  if (
+    normalized &&
+    /(healthy|operational|available|up|restored|resolved|normal|no issues|stable)/.test(normalized)
+  ) {
+    return "ok";
+  }
+  return normalized ? "warn" : "warn";
+};
+
+const composeMetaStatusMessage = (severity, statusText, detailText) => {
+  const descriptorParts = [];
+  if (statusText) descriptorParts.push(statusText);
+  if (detailText && detailText !== statusText) descriptorParts.push(detailText);
+  const descriptor = descriptorParts.join(" - ") || "Sin detalles oficiales";
+  if (severity === "ok") return `🟢 OK (MetaStatus: ${descriptor})`;
+  if (severity === "down") return `🔴 Caído (MetaStatus: ${descriptor})`;
+  return `🟡 Advertencia (MetaStatus: ${descriptor})`;
+};
+
+const normalizeMetaStatusEntry = (entry) => {
+  const slugPaths = ["slug", "service.slug", "service", "platform", "product", "name", "title"];
+  let slug = null;
+  for (const path of slugPaths) {
+    const value = getNestedValue(entry, path);
+    const detected = detectMetaSlug(typeof value === "string" ? value : "");
+    if (detected) {
+      slug = detected;
+      break;
+    }
+  }
+  if (!slug) return null;
+
+  const statusText =
+    pickFirstString(entry, [
+      "status.description",
+      "status.title",
+      "status.state",
+      "status.status",
+      "status",
+      "status_text",
+      "statusDescription",
+      "status_description",
+      "indicator",
+      "state",
+      "current_status",
+      "currentStatus",
+    ]) || "Sin información oficial";
+
+  const detailText =
+    pickFirstString(entry, [
+      "latest_update.title",
+      "latest_update.description",
+      "latestUpdate.title",
+      "latestUpdate.description",
+      "last_incident.title",
+      "lastIncident.title",
+      "incident.title",
+      "incident.description",
+      "message",
+      "subtitle",
+      "description",
+      "body",
+    ]) || "";
+
+  const severity = determineMetaSeverity(`${statusText} ${detailText}`.trim());
+  const message = composeMetaStatusMessage(severity, statusText, detailText);
+
+  return { slug, severity, statusText, detailText, message };
+};
+
+const collectMetaStatusEntries = (payload) => {
+  if (!payload || typeof payload !== "object") return [];
+  const collected = [];
+  const seen = new Set();
+
+  const visit = (value) => {
+    if (!value || typeof value !== "object") return;
+    if (seen.has(value)) return;
+    seen.add(value);
+
+    const keys = Object.keys(value);
+    if (keys.some((key) => /status|incident|indicator|state/i.test(key))) {
+      const normalized = normalizeMetaStatusEntry(value);
+      if (normalized) {
+        collected.push(normalized);
+      }
+    }
+
+    for (const child of Object.values(value)) {
+      if (child && typeof child === "object") {
+        visit(child);
+      }
+    }
+  };
+
+  visit(payload);
+  return collected;
+};
+
+const buildMetaStatusMap = (payload) => {
+  const entries = collectMetaStatusEntries(payload);
+  if (!entries.length) return null;
+  const map = new Map();
+  for (const entry of entries) {
+    const current = map.get(entry.slug);
+    if (!current || entry.detailText.length > (current.detailText || "").length) {
+      map.set(entry.slug, entry);
+    }
+  }
+  return map;
+};
+
+const extractJsonFromHtml = (html) => {
+  if (typeof html !== "string") return null;
+  const inlineJsonPatterns = [
+    /window\.__APOLLO_STATE__\s*=\s*(\{.*?\});/s,
+    /window\.__NEXT_DATA__\s*=\s*(\{.*?\});/s,
+    /window\.__NUXT__\s*=\s*(\{.*?\});/s,
+  ];
+
+  for (const pattern of inlineJsonPatterns) {
+    const match = html.match(pattern);
+    if (match) {
+      try {
+        return JSON.parse(match[1]);
+      } catch {
+        // ignorar y probar el siguiente patrón
+      }
+    }
+  }
+
+  const nextDataScript = html.match(/<script[^>]+id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if (nextDataScript) {
+    try {
+      return JSON.parse(nextDataScript[1]);
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+};
+
+const fetchMetaStatusPayload = async () => {
+  const headers = {
+    "User-Agent": "HealthCheckMonitor/1.0",
+    Accept: "application/json,text/html;q=0.9,*/*;q=0.8",
+  };
+
+  for (const endpoint of META_STATUS_ENDPOINTS) {
+    try {
+      const response = await fetchWithTimeout(endpoint, { headers }, 8_000);
+      if (response.status === 200) {
+        const text = await response.text();
+        try {
+          return JSON.parse(text);
+        } catch {
+          // si el endpoint devuelve HTML accidentalmente, seguimos con el fallback
+        }
+      }
+    } catch {
+      // Intentaremos con el siguiente endpoint
+    }
+  }
+
+  try {
+    const response = await fetchWithTimeout(META_STATUS_PAGE_URL, { headers }, 8_000);
+    if (response.status === 200) {
+      const html = await response.text();
+      return extractJsonFromHtml(html);
+    }
+  } catch {
+    // sin conexión al sitio principal de Meta
+  }
+
+  return null;
+};
+
+const loadMetaStatusMap = async () => {
+  if (metaStatusCache.map && metaStatusCache.expiresAt > Date.now()) {
+    return metaStatusCache.map;
+  }
+
+  const payload = await fetchMetaStatusPayload();
+  const map = buildMetaStatusMap(payload);
+
+  if (map && map.size) {
+    metaStatusCache = { map, expiresAt: Date.now() + META_STATUS_CACHE_TTL_MS };
+    return map;
+  }
+
+  metaStatusCache = { map: null, expiresAt: Date.now() + 15_000 };
+  return null;
+};
+
+const getMetaStatusForApp = async (appKey) => {
+  const slug = META_APPS.get(appKey);
+  if (!slug) return null;
+  try {
+    const map = await loadMetaStatusMap();
+    if (!map) return null;
+    return map.get(slug)?.message || null;
+  } catch (error) {
+    console.error("MetaStatus: error al obtener estado oficial:", error.message);
+    return null;
   }
 };
 
@@ -145,6 +425,16 @@ const buildSection = async (dictionary) => {
       statusMessage = await checkFormbricksHealth(urlOrIp);
       output[`${name}_status`] = statusMessage;
       output[`${name}_state`] = statusMessage;
+    } else if (META_APPS.has(name)) {
+      statusMessage = await getMetaStatusForApp(name);
+      if (statusMessage) {
+        output[`${name}_status`] = statusMessage;
+        output[`${name}_state`] = statusMessage;
+      } else {
+        const fallbackStatus = await checkUrl(urlOrIp);
+        output[`${name}_status`] = fallbackStatus;
+        output[`${name}_state`] = humanState(fallbackStatus);
+      }
     } else {
       const statusCode = await checkUrl(urlOrIp);
       output[`${name}_status`] = statusCode;
