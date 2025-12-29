@@ -6,8 +6,7 @@
     "vikunja": "https://tasks.soul23.cloud",
     "gokapi": "https://wetrans.soul23.cloud",
     "n8n_flows": "https://flows.soul23.cloud",
-    "ap_pos": "https://apos.soul23.cloud",
-    "appsmith": "https://appsmith.soul23.cloud"
+    "ap_pos": "https://apos.soul23.cloud"
   },
   "sitios_empresa": {
     "vanity_web": "https://vanityexperience.mx/",
