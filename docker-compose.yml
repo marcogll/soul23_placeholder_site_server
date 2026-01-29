@@ -4,6 +4,7 @@ services:
   soul23_cloud_site:
     image: marcogll/soul23_cloud_site:latest
     restart: unless-stopped
+    user: "1000:1000"
     ports:
       # Cambia el puerto de la izquierda si quieres exponerlo en otro puerto externo (por ej. "80:3001")
       - "3001:3001"
