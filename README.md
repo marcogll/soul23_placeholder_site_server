@@ -11,10 +11,13 @@
 
 # Soul23 Placeholder
 
-Proyecto de software para operaciones empresariales ⚙️
+Aplicación Python para operaciones de negocio ⚙️
 
 <p>
-  <img src="https://img.shields.io/badge/español-111111?style=flat-square&logo=googletranslate&logoColor=white" alt="Español">
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/Español-111111?style=flat-square&logo=googletranslate&logoColor=white" alt="Español">
+  <img src="https://img.shields.io/badge/website-111111?style=flat-square&logo=github&logoColor=white" alt="Website">
 </p>
 
 ---
@@ -56,5 +59,6 @@ Proyecto de software para operaciones empresariales ⚙️
 
 - No requiere Node.js ni backend para funcionar.
 - El formulario depende del webhook externo configurado en `js/form_submission.js`.
+
 
 
