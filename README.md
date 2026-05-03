@@ -1,22 +1,25 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://soul23.mx/logo/s23_logo_wh.png">
-    <img src="https://soul23.mx/logo/s23_logo_blk.png" alt="Soul23" width="110">
-  </picture>
+<div align="center">
+
+<img src="https://soul23.mx/logo/soul23_logo.svg" width="90" alt="Soul23">
+
+# Soul23 Placeholder
+
+Python-based application for business operations ⚙️
+
+<p>
+    <img src="https://img.shields.io/badge/Docker-111111?style=flat-square&logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/Node.js-111111?style=flat-square&logo=node.js&logoColor=white" alt="Node.js">
+  <img src="https://img.shields.io/badge/Python-111111?style=flat-square&logo=python&logoColor=white" alt="Python">
+
 </p>
+
+</div>
+
+---
 
 <h1 align="center">sol23_placeholder.git</h1>
 
-<p align="center">
-  Este proyecto ahora funciona como sitio 100% estático: solo HTML, CSS y JavaScript.
-</p>
 
-<p align="center">
-  [![Docker](https://img.shields.io/badge/docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://github.com/marcogll)
-  [![Node.js](https://img.shields.io/badge/node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://github.com/marcogll)
-  [![OpenAI](https://img.shields.io/badge/openai-412991?style=for-the-badge&logo=openai&logoColor=white)](https://github.com/marcogll)
-  [![Python](https://img.shields.io/badge/python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://github.com/marcogll)
-</p>
 
 
 ## Incluye
@@ -51,3 +54,4 @@
 
 - No requiere Node.js ni backend para funcionar.
 - El formulario depende del webhook externo configurado en `js/form_submission.js`.
+
